@@ -64,4 +64,4 @@ trap_handler:
     lw   a4, 32(sp)
     lw   a5, 36(sp)
     addi sp, sp, 48
-    mrej
+    mret
