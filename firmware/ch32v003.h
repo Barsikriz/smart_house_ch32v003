@@ -28,7 +28,7 @@
 /* -- FLASH -- */
 #define FLASH_BASE 0x40022000
 typedef struct {
-  __IO uint32_t ACTLER;
+  __IO uint32_t ACTLR;
 } FLASH_TypeDef;
 #define FLASH ((FLASH_TypeDef *)FLASH_BASE)
 #define FLASH_LATENCY_2 0x2 /* 2 wait state */
