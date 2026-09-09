@@ -1,7 +1,6 @@
 #ifndef CH32V003_H
 #define CH32V003_H
 
-#include <cstdint>
 #include <stdint.h>
 
 #define REG32(a) (*(volatile uint32_t *)(a))
