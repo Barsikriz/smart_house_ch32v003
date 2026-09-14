@@ -1,6 +1,5 @@
 TARGET  := main
-CROSS   ?= riscv-none-elf-      # для дистро-пакета: riscv64-elf-
-
+CROSS   ?= riscv-none-elf-
 CC      := $(CROSS)gcc
 OBJCOPY := $(CROSS)objcopy
 OBJDUMP := $(CROSS)objdump
@@ -20,32 +19,31 @@ LDFLAGS := $(ARCH) -T linker.ld \
 OBJS := startup.o main.o
 
 all: $(TARGET).bin
-    $(SIZE) $(TARGET).elf
+	$(SIZE) $(TARGET).elf
 
- $(TARGET).elf: $(OBJS) linker.ld
-    $(CC) $(LDFLAGS) $(OBJS) -lgcc -o $@
+$(TARGET).elf: $(OBJS) linker.ld
+	$(CC) $(LDFLAGS) $(OBJS) -lgcc -o $@
 
 startup.o: startup.S
-    $(CC) $(ASFLAGS) -c $< -o $@
+	$(CC) $(ASFLAGS) -c $< -o $@
 
 main.o: main.c ch32v003.h
-    $(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
- $(TARGET).bin: $(TARGET).elf
-    $(OBJCOPY) -O binary $< $@
+$(TARGET).bin: $(TARGET).elf
+	$(OBJCOPY) -O binary $< $@
 
-# посмотреть, во что компилятор развернул код (увидишь c.lw/c.sw!)
 disasm: $(TARGET).elf
-    $(OBJDUMP) -d $< > $(TARGET).lst
+	$(OBJDUMP) -d $< > $(TARGET).lst
 
 MINICHLINK := ../ch32v003fun/minichlink/minichlink
- $(MINICHLINK):
-    make -C ../ch32v003fun/minichlink
+$(MINICHLINK):
+	make -C ../ch32v003fun/minichlink
 
 flash: $(TARGET).bin $(MINICHLINK)
-    $(MINICHLINK) -w $<
+	$(MINICHLINK) -w $<
 
 clean:
-    rm -f *.o *.elf *.bin *.map *.lst
+	rm -f *.o *.elf *.bin *.map *.lst
 
 .PHONY: all flash clean disasm

@@ -1,4 +1,4 @@
-OUTPPUT_ARCH("riscv")
+OUTPUT_ARCH("riscv")
 ENTRY(_start)
 
 MEMORY

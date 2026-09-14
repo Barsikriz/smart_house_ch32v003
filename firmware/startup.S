@@ -2,11 +2,13 @@
     .global _start
 
 _start:
-    option push
+    .option push
 
 1:  .option push
     .option norelax
-    la   gp, __global_pointer$     .option pop
+    la   gp, __global_pointer$     
+    .option pop
+
 
     la   sp, _eusrstack
 
