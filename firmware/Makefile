@@ -43,7 +43,13 @@ $(MINICHLINK):
 flash: $(TARGET).bin $(MINICHLINK)
 	$(MINICHLINK) -w $<
 
+ifeq ($(OS),Windows_NT)
+CLEAN_CMD = del /Q *.o *.elf *.bin *.map *.lst 2>NUL || exit 0
+else
+CLEAN_CMD = rm -f *.o *.elf *.bin *.map *.lst
+endif
+
 clean:
-	rm -f *.o *.elf *.bin *.map *.lst
+	$(CLEAN_CMD)
 
 .PHONY: all flash clean disasm

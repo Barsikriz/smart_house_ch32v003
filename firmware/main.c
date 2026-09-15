@@ -31,6 +31,7 @@ void Delay_Ms(uint32_t ms) {
 /* -----trap------ */
 void trap_c(unsigned long mcause, unsigned long mepc) {
   (void)mepc;
+  (void)mcause;
   for (;;) {
     GPIOC->BSHR = 1UL << (LED_PIN + 16);
     Delay_Ms(80);
@@ -41,9 +42,7 @@ void trap_c(unsigned long mcause, unsigned long mepc) {
 
 /* ------ GPIO ----- */
 static void gpio_cfg(GPIO_TypeDef *port, int pin, uint32_t mode) {
-  {
-    port->CFGLR = (port->CFGLR & ~(0xFUL << (pin * 4))) | (mode << (pin * 4));
-  }
+  port->CFGLR = (port->CFGLR & ~(0xFUL << (pin * 4))) | (mode << (pin * 4));
 }
 static void gpio_init(void) {
   RCC->APB2PCENR |= RCC_IOPCEN | RCC_IOPDEN;
