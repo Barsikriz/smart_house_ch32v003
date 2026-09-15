@@ -7,6 +7,8 @@
 void SystemInit(void);
 void trap_c(unsigned long mcause, unsigned long mepc);
 
+void SystemInit(void) {}
+
 static void delay(uint32_t n) {
   while (n--) {
     __asm volatile("nop");
@@ -24,6 +26,9 @@ void trap_c(unsigned long mcause, unsigned long mepc) {
 /* ---------- main ---------- */
 int main(void) {
   RCC->APB2PCENR |= RCC_IOPCEN | RCC_IOPDEN;
+
+  GPIOC->CFGLR =
+      (GPIOC->CFGLR & ~(0xFUL << (0 * 4))) | (GPIO_OUT_PP_10 << (0 * 4));
 
   GPIOC->CFGLR =
       (GPIOD->CFGLR & ~(0xFUL << (5 * 4))) | (GPIO_OUT_PP_10 << (5 * 4));
