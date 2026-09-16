@@ -1,55 +1,72 @@
-# Prerequisites
+# ============================================================
+# Embedded C / CH32V003 build artifacts
+# ============================================================
+
+# Object / dependency files
+*.o
+*.obj
 *.d
 
-# Object files
-*.o
-*.ko
-*.obj
+# Firmware images
+*.bin
+*.hex
 *.elf
+*.elf.*
+*.uf2
 
-# Linker output
-*.ilk
+# Linker / assembler output
 *.map
-*.exp
-
-# Precompiled Headers
-*.gch
-*.pch
+*.lst
+*.lss
+*.sym
 
 # Libraries
-*.lib
 *.a
+*.lib
 *.la
 *.lo
 
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
+# Compiler intermediate/debug files
+*.su
+*.dwo
+*.gch
+*.pch
+*.pdb
+*.idb
 
-# Executables
+# Generic executables
 *.exe
 *.out
 *.app
-*.i*86
-*.x86_64
-*.hex
 
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
+# Build directories
+build/
+Build/
+out/
+cmake-build-*/
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+# ============================================================
+# Editors / IDE
+# ============================================================
 
-# debug information files
-*.dwo
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ============================================================
+# OS garbage
+# ============================================================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============================================================
+# Logs / temporary files
+# ============================================================
+
+*.log
+*.tmp
+*.temp
