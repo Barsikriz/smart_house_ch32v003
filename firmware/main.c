@@ -23,7 +23,7 @@ static void uart_init(void) {
   GPIOD->CFGLR =
       (GPIOD->CFGLR & ~(0xFUL << (5 * 4))) | (GPIO_AF_PP_50 << (5 * 4));
 
-  USART1->BRR = 2500;
+  USART1->BRR = 24000000UL / 115200UL;
 
   USART1->CTLR1 = USART_UE | USART_TE;
 }
