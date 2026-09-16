@@ -9,11 +9,11 @@ void trap_c(unsigned long mcause, unsigned long mepc);
 
 /* ----------  HSI 24 МГц → PLL x2 → 48 МГц ---------- */
 void SystemInit(void) {
+  RCC->CFGR0 = (RCC->CFGR0 & ~(RCC_SW_MASK | (0xFUL << 4))) | RCC_SW_PLL;
   FLASH->ACTLR = FLASH_LATENCY_2;
   RCC->CTLR |= RCC_PLLON;
   while (!(RCC->CTLR & RCC_PLLRDY)) {
   }
-  RCC->CFGR0 = (RCC->CFGR0 & ~RCC_SW_MASK) | RCC_SW_PLL;
   while ((RCC->CFGR0 & RCC_SWS_MASK) != RCC_SWS_PLL) {
   }
   STK_CNTL = 0;
@@ -31,6 +31,7 @@ void Delay_Ms(uint32_t ms) {
 /* -----trap------ */
 void trap_c(unsigned long mcause, unsigned long mepc) {
   (void)mepc;
+  (void)mcause;
   for (;;) {
     GPIOC->BSHR = 1UL << (LED_PIN + 16);
     Delay_Ms(80);
