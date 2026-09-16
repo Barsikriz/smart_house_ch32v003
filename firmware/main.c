@@ -7,13 +7,7 @@
 void SystemInit(void);
 void trap_c(unsigned long mcause, unsigned long mepc);
 
-void SystemInit(void) {}
-
-static void delay(uint32_t n) {
-  while (n--) {
-    __asm volatile("nop");
-  }
-}
+void SystemInit(void) { RCC->CFGR0 &= ~(0xFUL << 4); }
 
 /* -----trap------ */
 void trap_c(unsigned long mcause, unsigned long mepc) {
@@ -23,24 +17,36 @@ void trap_c(unsigned long mcause, unsigned long mepc) {
   }
 }
 
+static void uart_init(void) {
+  RCC->APB2PCENR |= RCC_IOPDEN | RCC_USART1EN;
+
+  GPIOD->CFGLR =
+      (GPIOD->CFGLR & ~(0xFUL << (5 * 4))) | (GPIO_AF_PP_50 << (5 * 4));
+
+  USART1->BRR = 2500;
+
+  USART1->CTLR1 = USART_UE | USART_TE;
+}
+
+static void uart_putc(uint8_t c) {
+  while (!(USART1->STATR & USART_TXE)) {
+  }
+
+  USART1->DATAR = c;
+}
+
+/*
+static void delay(uint32_t n) {
+  while (n--) {
+    __asm volatile("nop");
+  }
+}
+*/
+
 /* ---------- main ---------- */
 int main(void) {
-  RCC->APB2PCENR |= RCC_IOPCEN | RCC_IOPDEN;
-
-  GPIOC->CFGLR =
-      (GPIOC->CFGLR & ~(0xFUL << (0 * 4))) | (GPIO_OUT_PP_10 << (0 * 4));
-
-  GPIOC->CFGLR =
-      (GPIOD->CFGLR & ~(0xFUL << (5 * 4))) | (GPIO_OUT_PP_10 << (5 * 4));
-
+  uart_init();
   for (;;) {
-    GPIOC->BSHR = 1UL << 0;
-    GPIOD->BSHR = 1UL << 5;
-
-    delay(200000);
-
-    GPIOC->BSHR = 1UL << 16;
-    GPIOD->BSHR = 1UL << (5 + 16);
-    delay(200000);
+    uart_putc(0x55);
   }
 }
