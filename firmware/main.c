@@ -36,6 +36,8 @@ void SystemInit(void) {
   /*
    * PLL boot.
    */
+  /* PLL source = HSI */
+  RCC->CFGR0 &= ~RCC_PLLSRC_MASK;
   RCC->CTLR |= RCC_PLLON;
   /*
    *  waiting for pll stabilization
@@ -43,7 +45,7 @@ void SystemInit(void) {
   while (!(RCC->CTLR & RCC_PLLRDY)) {
   }
   /*
-   *SYSTICK -> PLL
+   *SYSCLK <- PLL
    * */
 
   RCC->CFGR0 = (RCC->CFGR0 & ~RCC_SW_MASK) | RCC_SW_PLL;
@@ -164,13 +166,18 @@ static void uart_puts(const char *s) {
   }
 }
 
-/* ---------- main ---------- */
+/* =========================================================
+ * MAIN
+ * ========================================================= */
 int main(void) {
   uint32_t prev = 1;
 
   gpio_init();
   uart_init();
-
+  for (;;) {
+    uart_puts("tick\n");
+    Delay_Ms(500);
+  }
   uart_puts("boot 48MHz\n");
 
   for (;;) {
