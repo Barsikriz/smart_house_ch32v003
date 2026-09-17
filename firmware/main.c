@@ -175,47 +175,60 @@ static void uart_puts(const char *s) {
   }
 }
 
+static void uart_put_hex(uint32_t x) {
+  static const char hex[] = "0123456789ABCDEF";
+  for (int i = 7; i >= 0; i--) {
+    uart_putc(hex[(x >> (i * 4)) & 0xF]);
+  }
+}
+static void uart_print_reg(const char *name, uint32_t x) {
+  uart_puts(name);
+  uart_puts(" = 0x");
+  uart_put_hex(x);
+  uart_puts("\n");
+}
+
 /* =========================================================
  * MAIN
  * ========================================================= */
 int main(void) {
-  uint32_t prev = 1;
 
   gpio_init();
   uart_init();
-  for (;;) {
-    uart_puts("tick\n");
-    Delay_Ms(500);
-  }
-  uart_puts("boot 48MHz\n");
 
   for (;;) {
-    /* ---------- UART RX ---------- */
-    if (USART1->STATR & USART_RXNE) {
-      uint8_t c = (uint8_t)USART1->DATAR;
-      if (c == '1')
-        GPIOC->BSHR = 1UL << LED_PIN;
-      if (c == '0')
-        GPIOC->BSHR = 1UL << (LED_PIN + 16);
-      if (c == 'p')
-        uart_puts("PONG\n");
+    uart_puts("SysTick test: \n");
+
+    STK_CTLR = 0;
+    STK_SR = 0;
+    STK_CNTL = 0;
+    STK_CMPLR = 3000000UL;
+
+    uart_print_reg("CTLR before", STK_CTLR);
+    uart_print_reg("SR before", STK_SR);
+    uart_print_reg("CNT before", STK_CNTL);
+    uart_print_reg("CMP before", STK_CMPLR);
+
+    STK_CTLR = STK_STE;
+
+    for (volatile uint32_t i = 0; i < 100000UL; i++) {
+      __asm volatile("nop");
     }
 
-    /* ---------- BUTTON ---------- */
-    uint32_t now = (GPIOD->INDR >> BTN_PIN) & 1UL;
-    if (now != prev) {
-      Delay_Ms(30);
-      uint32_t stable = (GPIOD->INDR >> BTN_PIN) & 1UL;
-      if (stable == now) {
-        prev = stable;
-        /*
-         * pull-up:
-         *
-         * released = 1
-         * pressed  = 0
-         */
-        uart_puts(stable ? "BTN 0\n" : "BTN 1\n");
-      }
+    uint32_t ctlr = STK_CTLR;
+    uint32_t sr = STK_SR;
+    uint32_t cnt = STK_CNTL;
+    uint32_t cmp = STK_CMPLR;
+
+    STK_CTLR = 0;
+
+    uart_print_reg("CTLR after", ctlr);
+    uart_print_reg("SR after", sr);
+    uart_print_reg("CNT after", cnt);
+    uart_print_reg("CMP after", cmp);
+
+    for (volatile uint32_t i = 0; i < 2000000UL; i++) {
+      __asm volatile("nop");
     }
   }
 }
