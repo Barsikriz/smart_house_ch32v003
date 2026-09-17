@@ -7,6 +7,11 @@ MEMORY
   RAM   (rwx) : ORIGIN = 0x20000000, LENGTH = 2K
 }
 
+ASSERT(
+    ORIGIN(FLASH) == 0x00000000,
+    "CH32V003: FLASH must be linked at 0x00000000"
+)
+
 _estack = ORIGIN(RAM) + LENGTH(RAM); /* x20000800 */
 PROVIDE(_eusrstack = _estack);
 
