@@ -110,4 +110,5 @@ typedef struct {
 #define USART_UE (1UL << 13)
 #define USART_TE (1UL << 3)
 #define USART_RE (1UL << 2)
+
 #endif

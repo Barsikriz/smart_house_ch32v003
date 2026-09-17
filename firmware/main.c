@@ -63,23 +63,32 @@ void SystemInit(void) {
    * 48 MHz / 8 = 6 MHz.
    */
   STK_CNTL = 0;
-  STK_CTLR = STK_STE;
+  STK_CTLR = 0;
+  STK_SR = 0;
 }
 
 /* =========================================================
  * DELAY
  * ========================================================= */
 void Delay_Ms(uint32_t ms) {
-  uint32_t start = STK_CNTL;
   /*
    * SysTick = 48 MHz / 8 = 6 MHz
    *
    * 6 000 000 ticks/sec
    * 6000 ticks/ms
    */
+
   uint32_t ticks = ms * (F_CPU / 8UL / 1000UL);
-  while ((uint32_t)(STK_CNTL - start) < ticks) {
+
+  STK_CTLR = 0;
+  STK_CNTL = 0;
+  STK_SR = 0;
+  STK_CMPLR = ticks;
+  STK_CTLR = STK_STE;
+  while (!(STK_SR & STK_CNTIF)) {
   }
+  STK_CTLR = 0;
+  STK_SR = 0;
 }
 
 /* =========================================================
