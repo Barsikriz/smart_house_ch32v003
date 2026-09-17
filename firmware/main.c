@@ -174,10 +174,6 @@ int main(void) {
 
   gpio_init();
   uart_init();
-  for (;;) {
-    uart_puts("tick\n");
-    Delay_Ms(500);
-  }
   uart_puts("boot 48MHz\n");
 
   for (;;) {
