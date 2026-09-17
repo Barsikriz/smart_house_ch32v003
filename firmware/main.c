@@ -1,4 +1,5 @@
 #include "ch32v003.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 #define LED_PIN 0U
@@ -9,10 +10,15 @@
 #define F_CPU 48000000UL
 #define UART_BAUD 115200UL
 
+#define SYSTICK_HZ (F_CPU / 8UL)
+#define MS_TO_TICKS(ms) ((uint32_t)(ms) * (SYSTICK_HZ / 1000UL))
+
 #define RCC_HPRE_MASK (0xFUL << 4)
 #define RCC_PLLSRC_MASK (1UL << 16)
 
 #define FLASH_LATENCY_1 0x1UL
+
+#define BUTTON_DEBOUNCE_MS 30U
 
 void SystemInit(void);
 void trap_c(unsigned long mcause, unsigned long mepc);
@@ -22,63 +28,22 @@ void trap_c(unsigned long mcause, unsigned long mepc);
  * HSI 24 MHz -> PLL x2 -> SYSCLK 48 MHz -> HCLK /1
  * ========================================================= */
 void SystemInit(void) {
-  /*
-   * Flash latency = 1 for 48 MHz.
-   */
   FLASH->ACTLR = (FLASH->ACTLR & ~0x3UL) | FLASH_LATENCY_1;
+  /* HCLK = SYSCLK / 1, PLL source = HSI */
+  RCC->CFGR0 &= ~(RCC_HPRE_MASK | RCC_PLLSRC_MASK);
 
-  /*
-   * HPRE = 0000
-   * HCLK = SYSCLK / 1
-   */
-
-  RCC->CFGR0 &= ~RCC_HPRE_MASK;
-  /*
-   * PLL boot.
-   */
-  /* PLL source = HSI */
-  RCC->CFGR0 &= ~RCC_PLLSRC_MASK;
   RCC->CTLR |= RCC_PLLON;
-  /*
-   *  waiting for pll stabilization
-   *  */
   while (!(RCC->CTLR & RCC_PLLRDY)) {
-  }
-  /*
-   *SYSCLK <- PLL
-   * */
+    RCC->CFGR0 = (RCC->CFGR0 & ~RCC_SW_MASK) | RCC_SW_PLL;
 
-  RCC->CFGR0 = (RCC->CFGR0 & ~RCC_SW_MASK) | RCC_SW_PLL;
-
-  /*
-   *waiting..
-   * */
-  while ((RCC->CFGR0 & RCC_SWS_MASK) != RCC_SWS_PLL) {
-  }
-
-  /*
-   * SysTick enabled.
-   * STCLK=0 -> HCLK/8.
-   *
-   * 48 MHz / 8 = 6 MHz.
-   */
-  STK_CNTL = 0;
-  STK_CTLR = STK_STE;
-}
-
-/* =========================================================
- * DELAY
- * ========================================================= */
-void Delay_Ms(uint32_t ms) {
-  uint32_t start = STK_CNTL;
-  /*
-   * SysTick = 48 MHz / 8 = 6 MHz
-   *
-   * 6 000 000 ticks/sec
-   * 6000 ticks/ms
-   */
-  uint32_t ticks = ms * (F_CPU / 8UL / 1000UL);
-  while ((uint32_t)(STK_CNTL - start) < ticks) {
+    while ((RCC->CFGR0 & RCC_SWS_MASK) != RCC_SWS_PLL) {
+      /*
+       * Free-running SysTick.
+       * STCLK = 0 -> HCLK / 8 = 6 MHz.
+       */
+      STK_CNTL = 0;
+      STK_CTLR = STK_STE;
+    }
   }
 }
 
@@ -89,7 +54,6 @@ void trap_c(unsigned long mcause, unsigned long mepc) {
   (void)mepc;
   (void)mcause;
 
-  /* inf loop if trap  */
   for (;;) {
   }
 }
@@ -99,56 +63,40 @@ void trap_c(unsigned long mcause, unsigned long mepc) {
  * ========================================================= */
 static void gpio_cfg(GPIO_TypeDef *port, int pin, uint32_t mode) {
   {
-    port->CFGLR = (port->CFGLR & ~(0xFUL << (pin * 4))) | (mode << (pin * 4));
+    const uint32_t shift = pin * 4U;
+
+    port->CFGLR = (port->CFGLR & ~(0xFUL << shift)) | (mode << shift);
   }
 }
 static void gpio_init(void) {
-  /*
-   * Enabling clock GPIOC и GPIOD.
-   */
   RCC->APB2PCENR |= RCC_IOPCEN | RCC_IOPDEN;
-
-  /*
-   * PC0 = LED output push-pull.
-   */
   gpio_cfg(GPIOC, LED_PIN, GPIO_OUT_PP_10);
-
-  /*
-   * PD4 = input pull-up/pull-down.
-   */
   gpio_cfg(GPIOD, BTN_PIN, GPIO_IN_PUPD);
-  /*
-   * 1 = pull-up
-   * 0 = pull-down
-   */
+  /* * 1 = pull-up 0 = pull-down */
   GPIOD->OUTDR |= 1UL << BTN_PIN;
 }
+
+static void led_set(bool on) {
+  if (on) {
+    GPIOC->BSHR = 1UL << LED_PIN;
+  } else {
+    GPIOC->BSHR = 1UL << (LED_PIN + 16U);
+  }
+}
+
+static uint32_t button_read(void) { return (GPIOD->INDR >> BTN_PIN) & 1UL; }
 
 /* =========================================================
  * UART
  * ========================================================= */
 static void uart_init(void) {
   RCC->APB2PCENR |= RCC_IOPDEN | RCC_USART1EN;
-  /*
-   * PD5 = USART1 TX
-   * Alternate Function Push-Pull
-   */
+
   gpio_cfg(GPIOD, UART_TX_PIN, GPIO_AF_PP_50);
-  /*
-   * PD6 = USART1 RX
-   * floating input
-   */
   gpio_cfg(GPIOD, UART_RX_PIN, GPIO_IN_FLOAT);
-  /*
-   * 48 MHz / 115200 ~= 416.67
-   * round to 417.
-   */
+
   USART1->BRR = (F_CPU + UART_BAUD / 2UL) / UART_BAUD;
-  /*
-   * UE = USART enable
-   * TE = transmitter enable
-   * RE = receiver enable
-   */
+
   USART1->CTLR1 = USART_UE | USART_TE | USART_RE;
 }
 
@@ -166,41 +114,77 @@ static void uart_puts(const char *s) {
   }
 }
 
+static bool uart_try_getc(uint8_t *c) {
+  if (!(USART1->STATR & USART_RXNE)) {
+    return false;
+  }
+  *c = (uint8_t)USART1->DATAR;
+  return true;
+}
+
+/* =========================================================
+ * Application
+ * ========================================================= */
+
+static void handle_uart_command(uint8_t c) {
+  switch (c) {
+  case '1':
+    led_set(true);
+    break;
+  case '0':
+    led_set(false);
+    break;
+  case 'p':
+    uart_puts("PONG\n");
+    break;
+
+  default:
+    break;
+  }
+}
+
 /* =========================================================
  * MAIN
  * ========================================================= */
-int main(void) {
-  uint32_t prev = 1;
 
+int main() {
   gpio_init();
   uart_init();
-  uart_puts("boot 48MHz\n");
+
+  uart_puts("CH32V003 ready @ 48 MHz\n");
+  /*
+   * Debounce state.
+   *
+   * candidate = most recent raw pin value.
+   * stable    = accepted debounced value.
+   */
+
+  uint32_t stable = button_read();
+  uint32_t candidate = stable;
+  uint32_t candidate_since = STK_CNTL;
 
   for (;;) {
-    /* ---------- UART RX ---------- */
-    if (USART1->STATR & USART_RXNE) {
-      uint8_t c = (uint8_t)USART1->DATAR;
-      if (c == '1')
-        GPIOC->BSHR = 1UL << LED_PIN;
-      if (c == '0')
-        GPIOC->BSHR = 1UL << (LED_PIN + 16);
-      if (c == 'p')
-        uart_puts("PONG\n");
+
+    /* ------- UART ------- */
+
+    uint8_t c;
+
+    if (uart_try_getc(&c)) {
+      handle_uart_command(c);
     }
 
-    /* ---------- BUTTON ---------- */
-    uint32_t now = (GPIOD->INDR >> BTN_PIN) & 1UL;
-    if (now != prev) {
-      Delay_Ms(30);
-      uint32_t stable = (GPIOD->INDR >> BTN_PIN) & 1UL;
-      if (stable == now) {
-        prev = stable;
-        /*
-         * pull-up:
-         *
-         * released = 1
-         * pressed  = 0
-         */
+    /* ------- Button ------- */
+    const uint32_t now = button_read();
+    if (now != candidate) {
+      candidate = now;
+      candidate_since = STK_CNTL;
+    }
+    if (candidate != stable) {
+      const uint32_t elapsed = (uint32_t)(STK_CNTL - candidate_since);
+
+      if (elapsed >= MS_TO_TICKS(BUTTON_DEBOUNCE_MS)) {
+        stable = candidate;
+
         uart_puts(stable ? "BTN 0\n" : "BTN 1\n");
       }
     }
