@@ -7,7 +7,16 @@
 void SystemInit(void);
 void trap_c(unsigned long mcause, unsigned long mepc);
 
-void SystemInit(void) { RCC->CFGR0 &= ~(0xFUL << 4); }
+void SystemInit(void) {
+  RCC->CFGR0 &= ~(0xFUL << 4);
+  FLASH->ACTLR = 0x1;
+  RCC->CFGR0 &= ~(1UL << 16);
+  RCC->CTLR |= RCC_PLLON;
+  while (!(RCC->CTLR & RCC_PLLRDY)) {
+  }
+
+  RCC->CFGR0 = (RCC->CFGR0 & ~RCC_SW_MASK) | RCC_SW_PLL;
+}
 
 /* -----trap------ */
 void trap_c(unsigned long mcause, unsigned long mepc) {
