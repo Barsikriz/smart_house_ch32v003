@@ -55,16 +55,6 @@ void SystemInit(void) {
    * */
   while ((RCC->CFGR0 & RCC_SWS_MASK) != RCC_SWS_PLL) {
   }
-
-  /*
-   * SysTick enabled.
-   * STCLK=0 -> HCLK/8.
-   *
-   * 48 MHz / 8 = 6 MHz.
-   */
-  STK_CNTL = 0;
-  STK_CTLR = 0;
-  STK_SR = 0;
 }
 
 /* =========================================================
@@ -95,11 +85,14 @@ void Delay_Ms(uint32_t ms) {
  * TRAP
  * ========================================================= */
 void trap_c(unsigned long mcause, unsigned long mepc) {
-  (void)mepc;
   (void)mcause;
+  (void)mepc;
 
-  /* inf loop if trap  */
   for (;;) {
+    while (!(USART1->STATR & USART_TXE)) {
+    }
+
+    USART1->DATAR = '!';
   }
 }
 
@@ -192,43 +185,13 @@ static void uart_print_reg(const char *name, uint32_t x) {
  * MAIN
  * ========================================================= */
 int main(void) {
-
   gpio_init();
   uart_init();
 
   for (;;) {
-    uart_puts("SysTick test: \n");
-
-    STK_CTLR = 0;
-    STK_SR = 0;
-    STK_CNTL = 0;
-    STK_CMPLR = 3000000UL;
-
-    uart_print_reg("CTLR before", STK_CTLR);
-    uart_print_reg("SR before", STK_SR);
-    uart_print_reg("CNT before", STK_CNTL);
-    uart_print_reg("CMP before", STK_CMPLR);
-
-    STK_CTLR = STK_STE;
-
-    for (volatile uint32_t i = 0; i < 100000UL; i++) {
-      __asm volatile("nop");
-    }
-
-    uint32_t ctlr = STK_CTLR;
-    uint32_t sr = STK_SR;
-    uint32_t cnt = STK_CNTL;
-    uint32_t cmp = STK_CMPLR;
-
-    STK_CTLR = 0;
-
-    uart_print_reg("CTLR after", ctlr);
-    uart_print_reg("SR after", sr);
-    uart_print_reg("CNT after", cnt);
-    uart_print_reg("CMP after", cmp);
-
-    for (volatile uint32_t i = 0; i < 2000000UL; i++) {
-      __asm volatile("nop");
-    }
+    uart_putc('A');
+    uart_putc('\r');
+    uart_putc('\n');
+    uart_putc('U');
   }
 }
