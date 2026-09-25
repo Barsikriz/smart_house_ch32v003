@@ -173,6 +173,32 @@ static void pwm_init(void) {
    * CH1 and CH2:
    * PWM mode 1 + compare preload.
    */
+
+  TIM1->CHCTLR1 = TIM_OC1_PWM1 | TIM_OC1PE | TIM_OC2_PWM1 | TIM_OC2PE;
+  /* CH3:
+   * PWM mode 1 + preload
+   */
+  TIM1->CHCTLR2 = TIM_OC3_PWM1 | TIM_OC3PE;
+
+  TIM1->CCER = TIM_CC1E | TIM_CC2E | TIM_CC3E;
+
+  TIM1->CTLR1 |= TIM_ARPE;
+
+  /*
+   * Force registers into active state.
+   */
+  TIM1->SWEVGR = TIM_UG;
+
+  /*
+   * TIM1 is an advanced timer:
+   * main output must also be enabled.
+   */
+  TIM1->BDTR |= TIM_MOE;
+
+  /*
+   * Start counter.
+   */
+  TIM1->CTLR1 |= TIM_CEN;
 }
 
 /* =========================================================
