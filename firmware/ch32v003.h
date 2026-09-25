@@ -110,4 +110,93 @@ typedef struct {
 #define USART_UE (1UL << 13)
 #define USART_TE (1UL << 3)
 #define USART_RE (1UL << 2)
+
+/* =========================================================
+ * TIM1
+ * ========================================================= */
+
+#define TIM1_BASE 0x40012C00UL
+
+typedef struct {
+  __IO uint16_t CTLR1; /* 0x00 */
+  uint16_t RESERVED0;
+
+  __IO uint16_t CTLR2; /* 0x04 */
+  uint16_t RESERVED1;
+
+  __IO uint16_t SMCFGR; /* 0x08 */
+  uint16_t RESERVED2;
+
+  __IO uint16_t DMAINTENR; /* 0x0C */
+  uint16_t RESERVED3;
+
+  __IO uint16_t INTFR; /* 0x10 */
+  uint16_t RESERVED4;
+
+  __IO uint16_t SWEVGR; /* 0x14 */
+  uint16_t RESERVED5;
+
+  __IO uint16_t CHCTLR1; /* 0x18 */
+  uint16_t RESERVED6;
+
+  __IO uint16_t CHCTLR2; /* 0x1C */
+  uint16_t RESERVED7;
+
+  __IO uint16_t CCER; /* 0x20 */
+  uint16_t RESERVED8;
+
+  __IO uint16_t CNT; /* 0x24 */
+  uint16_t RESERVED9;
+
+  __IO uint16_t PSC; /* 0x28 */
+  uint16_t RESERVED10;
+
+  __IO uint16_t ATRLR; /* 0x2C */
+  uint16_t RESERVED11;
+
+  __IO uint16_t RPTCR; /* 0x30 */
+  uint16_t RESERVED12;
+
+  __IO uint32_t CH1CVR; /* 0x34 */
+  __IO uint32_t CH2CVR; /* 0x38 */
+  __IO uint32_t CH3CVR; /* 0x3C */
+  __IO uint32_t CH4CVR; /* 0x40 */
+
+  __IO uint16_t BDTR; /* 0x44 */
+  uint16_t RESERVED13;
+} TIM_TypeDef;
+
+/* RCC APB2 */
+#define RCC_TIM1EN (1UL << 11)
+
+/* TIM CTLR1 */
+#define TIM_CEN (1U << 0)
+#define TIM_ARPE (1U << 7)
+
+/* TIM SWEVGR */
+#define TIM_UG (1U << 0)
+
+/* PWM mode 1 + preload */
+#define TIM_OC1PE (1U << 3)
+#define TIM_OC1_PWM1 (6U << 4)
+
+#define TIM_OC2PE (1U << 11)
+#define TIM_OC2_PWM1 (6U << 12)
+
+/*
+ * CH3 lives in the low half of CHCTLR2,
+ * therefore its bit positions match CH1.
+ */
+#define TIM_OC3PE (1U << 3)
+#define TIM_OC3_PWM1 (6U << 4)
+
+/* TIM CCER */
+#define TIM_CC1E (1U << 0)
+#define TIM_CC2E (1U << 4)
+#define TIM_CC3E (1U << 8)
+
+/* TIM BDTR */
+#define TIM_MOE (1U << 15)
+
+#define TIM1 ((TIM_TypeDef *)TIM1_BASE)
 #endif

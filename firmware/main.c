@@ -20,6 +20,13 @@
 
 #define BUTTON_DEBOUNCE_MS 30U
 
+#define PWM_R_PIN 2U /* PD2 = TIM1_CH1 */
+#define PWM_G_PIN 1U /* PA1 = TIM1_CH2 */
+#define PWM_B_PIN 3U /* PC3 = TIM1_CH3 */
+
+#define PWM_FREQ 20000UL
+#define PWM_COUNTS (F_CPU / PWM_FREQ)
+
 void SystemInit(void);
 void trap_c(unsigned long mcause, unsigned long mepc);
 
@@ -69,11 +76,22 @@ static void gpio_cfg(GPIO_TypeDef *port, int pin, uint32_t mode) {
   }
 }
 static void gpio_init(void) {
-  RCC->APB2PCENR |= RCC_IOPCEN | RCC_IOPDEN;
+  RCC->APB2PCENR |= RCC_IOPAEN | RCC_IOPCEN | RCC_IOPDEN;
   gpio_cfg(GPIOC, LED_PIN, GPIO_OUT_PP_10);
   gpio_cfg(GPIOD, BTN_PIN, GPIO_IN_PUPD);
   /* * 1 = pull-up 0 = pull-down */
   GPIOD->OUTDR |= 1UL << BTN_PIN;
+
+  /*
+   * TIM1 PWM outputs:
+   *
+   * PD2 = TIM1_CH1 = Red
+   * PA1 = TIM1_CH2 = Green
+   * PC3 = TIM1_CH3 = Blue
+   */
+  gpio_cfg(GPIOD, PWM_R_PIN, GPIO_AF_PP_50);
+  gpio_cfg(GPIOA, PWM_G_PIN, GPIO_AF_PP_50);
+  gpio_cfg(GPIOC, PWM_B_PIN, GPIO_AF_PP_50);
 }
 
 static void led_set(bool on) {
@@ -120,6 +138,41 @@ static bool uart_try_getc(uint8_t *c) {
   }
   *c = (uint8_t)USART1->DATAR;
   return true;
+}
+
+/* =========================================================
+
+ * PWM
+ * TIM1:
+ *   CH1 -> PD2 -> Red
+ *   CH2 -> PA1 -> Green
+ *   CH3 -> PC3 -> Blue
+ * ========================================================= */
+
+static void pwm_init(void) {
+  /* Enable TIM1 peripheral clock. */
+  RCC->APB2PCENR |= RCC_TIM1EN;
+
+  /*
+   * Stop timer while configuring it.
+   *
+   * Timer clock = 48 MHz
+   * PSC = 0 -> no prescaling
+   *
+   * 48 MHz / 2400 = 20 kHz
+   */
+
+  TIM1->CTLR1 = 0;
+  TIM1->PSC = 0;
+  TIM1->ATRLR = (uint16_t)(PWM_COUNTS - 1UL);
+  TIM1->CH1CVR = 0;
+  TIM1->CH2CVR = 0;
+  TIM1->CH3CVR = 0;
+
+  /*
+   * CH1 and CH2:
+   * PWM mode 1 + compare preload.
+   */
 }
 
 /* =========================================================
