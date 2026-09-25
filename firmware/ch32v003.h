@@ -103,6 +103,7 @@ typedef struct {
   __IO uint16_t CTLR3; /* 0x14 */
   __IO uint16_t RESERVED5;
 } USART_TypeDef;
+
 #define USART1 ((USART_TypeDef *)USART1_BASE)
 
 #define USART_TXE (1UL << 7)
