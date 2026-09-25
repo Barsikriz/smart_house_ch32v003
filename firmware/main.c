@@ -200,6 +200,24 @@ static void pwm_init(void) {
    */
   TIM1->CTLR1 |= TIM_CEN;
 }
+/* =========================================================
+ * PWM API
+ * ========================================================= */
+
+static uint16_t pwm_from_u8(uint8_t value) {
+  /*
+   * 0   -> 0 / 2400       = 0%
+   * 128 -> ~1205 / 2400   = ~50%
+   * 255 -> 2400 / 2400    = 100%
+   */
+  return (uint16_t)((uint8_t)value * PWM_COUNTS + 127UL) / 255UL;
+}
+
+static void rgb_set(uint8_t r, uint8_t g, uint8_t b) {
+  TIM1->CH1CVR = pwm_from_u8(r);
+  TIM1->CH2CVR = pwm_from_u8(g);
+  TIM1->CH3CVR = pwm_from_u8(b);
+}
 
 /* =========================================================
  * Application
@@ -229,43 +247,15 @@ static void handle_uart_command(uint8_t c) {
 int main() {
   gpio_init();
   uart_init();
+  pwm_init();
 
-  uart_puts("CH32V003 ready @ 48 MHz\n");
+  uart_puts("PWM TEST 20kHz\n");
   /*
-   * Debounce state.
-   *
-   * candidate = most recent raw pin value.
-   * stable    = accepted debounced value.
+   * R = 25%
+   * G = 50%
+   * B = 75%
    */
-
-  uint32_t stable = button_read();
-  uint32_t candidate = stable;
-  uint32_t candidate_since = STK_CNTL;
-
+  rgb_set(64, 128, 192);
   for (;;) {
-
-    /* ------- UART ------- */
-
-    uint8_t c;
-
-    if (uart_try_getc(&c)) {
-      handle_uart_command(c);
-    }
-
-    /* ------- Button ------- */
-    const uint32_t now = button_read();
-    if (now != candidate) {
-      candidate = now;
-      candidate_since = STK_CNTL;
-    }
-    if (candidate != stable) {
-      const uint32_t elapsed = (uint32_t)(STK_CNTL - candidate_since);
-
-      if (elapsed >= MS_TO_TICKS(BUTTON_DEBOUNCE_MS)) {
-        stable = candidate;
-
-        uart_puts(stable ? "BTN 0\n" : "BTN 1\n");
-      }
-    }
   }
 }
