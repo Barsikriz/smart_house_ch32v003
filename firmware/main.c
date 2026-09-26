@@ -36,22 +36,27 @@ void trap_c(unsigned long mcause, unsigned long mepc);
  * ========================================================= */
 void SystemInit(void) {
   FLASH->ACTLR = (FLASH->ACTLR & ~0x3UL) | FLASH_LATENCY_1;
+
   /* HCLK = SYSCLK / 1, PLL source = HSI */
   RCC->CFGR0 &= ~(RCC_HPRE_MASK | RCC_PLLSRC_MASK);
 
+  /* Enable PLL and wait until it is stable. */
   RCC->CTLR |= RCC_PLLON;
-  while (!(RCC->CTLR & RCC_PLLRDY)) {
-    RCC->CFGR0 = (RCC->CFGR0 & ~RCC_SW_MASK) | RCC_SW_PLL;
 
-    while ((RCC->CFGR0 & RCC_SWS_MASK) != RCC_SWS_PLL) {
-      /*
-       * Free-running SysTick.
-       * STCLK = 0 -> HCLK / 8 = 6 MHz.
-       */
-      STK_CNTL = 0;
-      STK_CTLR = STK_STE;
-    }
+  while (!(RCC->CTLR & RCC_PLLRDY)) {
   }
+
+  /* Switch SYSCLK to PLL. */
+  RCC->CFGR0 = (RCC->CFGR0 & ~RCC_SW_MASK) | RCC_SW_PLL;
+
+  while ((RCC->CFGR0 & RCC_SWS_MASK) != RCC_SWS_PLL) {
+  }
+
+  /* Free-running SysTick:
+   * STCLK = 0 -> HCLK / 8 = 6 MHz.
+   */
+  STK_CNTL = 0;
+  STK_CTLR = STK_STE;
 }
 
 /* =========================================================
@@ -140,6 +145,25 @@ static bool uart_try_getc(uint8_t *c) {
   return true;
 }
 
+static void uart_put_u32(uint32_t value) {
+  char buffer[10];
+  uint32_t len = 0;
+
+  if (value == 0U) {
+    uart_putc('0');
+    return;
+  }
+
+  while (value > 0U) {
+    buffer[len++] = (char)('0' + (value % 10U));
+    value /= 10U;
+  }
+
+  while (len > 0U) {
+    uart_putc((uint8_t)buffer[--len]);
+  }
+}
+
 /* =========================================================
 
  * PWM
@@ -213,10 +237,37 @@ static uint16_t pwm_from_u8(uint8_t value) {
   return (uint16_t)(((uint32_t)value * PWM_COUNTS + 127UL) / 255UL);
 }
 
+typedef struct {
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+} RgbColor;
+
+static RgbColor current_rgb;
+
 static void rgb_set(uint8_t r, uint8_t g, uint8_t b) {
+  current_rgb.r = r;
+  current_rgb.g = g;
+  current_rgb.b = b;
+
   TIM1->CH1CVR = pwm_from_u8(r);
   TIM1->CH2CVR = pwm_from_u8(g);
   TIM1->CH3CVR = pwm_from_u8(b);
+}
+static RgbColor current_rgb;
+
+static void uart_put_rgb(const RgbColor *rgb) {
+  uart_puts("RGB ");
+
+  uart_put_u32(rgb->r);
+  uart_putc(' ');
+
+  uart_put_u32(rgb->g);
+  uart_putc(' ');
+
+  uart_put_u32(rgb->b);
+
+  uart_puts("\n");
 }
 
 /* =========================================================
@@ -228,6 +279,7 @@ static void rgb_set(uint8_t r, uint8_t g, uint8_t b) {
  *   led 1
  *   rgb 255 128 0
  *   off
+ *   rgb?
  * ========================================================= */
 
 #define UART_LINE_MAX 32U
@@ -297,6 +349,11 @@ static void handle_uart_line(const char *line) {
   if (str_equal(line, "off")) {
     rgb_set(0, 0, 0);
     uart_puts("OK RGB 0 0 0\n");
+    return;
+  }
+
+  if (str_equal(line, "rgb?")) {
+    uart_put_rgb(&current_rgb);
     return;
   }
 
