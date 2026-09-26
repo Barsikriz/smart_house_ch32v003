@@ -210,7 +210,7 @@ static uint16_t pwm_from_u8(uint8_t value) {
    * 128 -> ~1205 / 2400   = ~50%
    * 255 -> 2400 / 2400    = 100%
    */
-  return (uint16_t)((uint8_t)value * PWM_COUNTS + 127UL) / 255UL;
+  return (uint16_t)(((uint32_t)value * PWM_COUNTS + 127UL) / 255UL);
 }
 
 static void rgb_set(uint8_t r, uint8_t g, uint8_t b) {
