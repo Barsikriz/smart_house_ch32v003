@@ -220,42 +220,234 @@ static void rgb_set(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 /* =========================================================
- * Application
+ * UART COMMAND PARSER
+ *
+ * Commands:
+ *   p
+ *   led 0
+ *   led 1
+ *   rgb 255 128 0
+ *   off
  * ========================================================= */
 
-static void handle_uart_command(uint8_t c) {
-  switch (c) {
-  case '1':
-    led_set(true);
-    break;
-  case '0':
-    led_set(false);
-    break;
-  case 'p':
-    uart_puts("PONG\n");
-    break;
+#define UART_LINE_MAX 32U
 
-  default:
-    break;
+static char uart_line[UART_LINE_MAX];
+static uint32_t uart_line_len = 0;
+
+static bool str_equal(const char *a, const char *b) {
+  while (*a && *b) {
+    if (*a != *b) {
+      return false;
+    }
+    ++a;
+    ++b;
+  }
+  return *a == '\0' && *b == '\0';
+}
+
+static bool parse_u8(const char **text, uint8_t *value) {
+  const char *p = *text;
+
+  while (*p == ' ' || *p == '\t') {
+    ++p;
+  }
+
+  if (*p < '0' || *p > '9') {
+    return false;
+  }
+
+  uint32_t result = 0;
+
+  while (*p >= '0' && *p <= '9') {
+
+    result = result * 10U + (uint32_t)(*p - '0');
+
+    if (result > 255U) {
+      return false;
+    }
+
+    ++p;
+  }
+
+  *value = (uint8_t)result;
+  *text = p;
+
+  return true;
+}
+
+static void handle_uart_line(const char *line) {
+  if (str_equal(line, "p")) {
+    uart_puts("PONG\n");
+    return;
+  }
+
+  if (str_equal(line, "led 1")) {
+    led_set(true);
+    uart_puts("OK LED 1\n");
+    return;
+  }
+
+  if (str_equal(line, "led 0")) {
+    led_set(false);
+    uart_puts("OK LED 0\n");
+    return;
+  }
+
+  if (str_equal(line, "off")) {
+    rgb_set(0, 0, 0);
+    uart_puts("OK RGB 0 0 0\n");
+    return;
+  }
+
+  if (line[0] == 'r' && line[1] == 'g' && line[2] == 'b' &&
+      (line[3] == ' ' || line[3] == '\t')) {
+
+    const char *p = &line[3];
+
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+
+    if (!parse_u8(&p, &r) || !parse_u8(&p, &g) || !parse_u8(&p, &b)) {
+
+      uart_puts("ERR rgb values must be 0..255\n");
+      return;
+    }
+
+    while (*p == ' ' || *p == '\t') {
+      ++p;
+    }
+
+    if (*p != '\0') {
+      uart_puts("ERR syntax\n");
+      return;
+    }
+
+    rgb_set(r, g, b);
+    uart_puts("OK RGB\n");
+    return;
+  }
+
+  uart_puts("ERR unknown command\n");
+}
+
+static void uart_process_byte(uint8_t c) {
+  /*
+   * Accept all common terminal line endings:
+   *
+   * LF   = '\n'
+   * CR   = '\r'
+   * CRLF = "\r\n"
+   *
+   * For CRLF the first character executes the command,
+   * the second sees an empty buffer and does nothing.
+   */
+  if (c == '\r' || c == '\n') {
+
+    uart_line[uart_line_len] = '\0';
+
+    if (uart_line_len != 0U) {
+      handle_uart_line(uart_line);
+    }
+
+    uart_line_len = 0;
+    return;
+  }
+
+  if (c == '\b' || c == 127U) {
+    if (uart_line_len > 0U) {
+      --uart_line_len;
+    }
+    return;
+  }
+
+  if (uart_line_len < UART_LINE_MAX - 1U) {
+    uart_line[uart_line_len++] = (char)c;
+  } else {
+    uart_line_len = 0;
+    uart_puts("ERR line too long\n");
   }
 }
 
 /* =========================================================
  * MAIN
  * ========================================================= */
-
-int main() {
+int main(void) {
   gpio_init();
   uart_init();
   pwm_init();
 
-  uart_puts("PWM TEST 20kHz\n");
   /*
-   * R = 25%
-   * G = 50%
-   * B = 75%
+   * Safe initial state:
+   * strip off.
    */
-  rgb_set(64, 128, 192);
+  rgb_set(0, 0, 0);
+  led_set(false);
+
+  uart_puts("READY\n");
+  uart_puts("Commands:\n");
+  uart_puts("  p\n");
+  uart_puts("  led 0\n");
+  uart_puts("  led 1\n");
+  uart_puts("  rgb R G B\n");
+  uart_puts("  off\n");
+
+  /*
+   * Button debounce state.
+   *
+   * Pull-up:
+   *   1 = released
+   *   0 = pressed
+   */
+  uint32_t stable = button_read();
+  uint32_t candidate = stable;
+  uint32_t candidate_since = STK_CNTL;
+
   for (;;) {
+
+    /* -------------------------
+     * UART
+     * ------------------------- */
+
+    uint8_t c;
+
+    while (uart_try_getc(&c)) {
+      uart_process_byte(c);
+    }
+
+    /* -------------------------
+     * BUTTON
+     * ------------------------- */
+
+    const uint32_t now = button_read();
+
+    /*
+     * Raw input changed.
+     * Start counting debounce time again.
+     */
+    if (now != candidate) {
+      candidate = now;
+      candidate_since = STK_CNTL;
+    }
+
+    /*
+     * Candidate differs from accepted state.
+     */
+    if (candidate != stable) {
+
+      const uint32_t elapsed = (uint32_t)(STK_CNTL - candidate_since);
+
+      if (elapsed >= MS_TO_TICKS(BUTTON_DEBOUNCE_MS)) {
+
+        stable = candidate;
+
+        if (stable == 0U) {
+          uart_puts("BTN 1\n");
+        } else {
+          uart_puts("BTN 0\n");
+        }
+      }
+    }
   }
 }
